@@ -198,20 +198,17 @@ if (galleryGrid) {
 // 7. MAPS
 // ========================
 function openMaps() {
-    // Link Google Maps spesifik lokasi pesta (valid)
-    const specificLink = 'https://maps.app.goo.gl/3znr8c6NM4v9dVdL6';
+    // Link spesifik dari Google Maps
+    const specificLink = 'https://maps.app.goo.gl/2DTZYho3eMFHqZ2YA';
     
-    // Alamat cadangan jika link pendek bermasalah
-    const address = encodeURIComponent("Pelompataan Gg. Buntu Ajeng, Indonesia");
-    const searchLink = `https://www.google.com/maps/search/?api=1&query=${address}`;
+    // Alamat lengkap sebagai cadangan (jika link pendek bermasalah)
+    const fullAddress = encodeURIComponent("Dekat Bandar Rejo, Kec. Bandar Masilam, Kabupaten Simalungun, Sumatera Utara");
+    const searchLink = `https://www.google.com/maps/search/?api=1&query=${fullAddress}`;
     
-    // Coba buka link spesifik, jika gagal buka alamat
+    // Buka link spesifik (paling akurat)
     window.open(specificLink, '_blank');
-    
-    // Opsional: jika link tidak terbuka karena pemblokiran, pengguna bisa klik tombol lagi untuk alamat
-    // Tapi untuk kemudahan, kita buka langsung link spesifik saja.
 }
-window.openMaps = openMaps;;
+window.openMaps = openMaps;
 
 // ========================
 // 8. RSVP + DAFTAR TAMU (Google Sheets) - FIXED
