@@ -198,8 +198,8 @@ if (galleryGrid) {
 // 7. MAPS
 // ========================
 function openMaps() {
-    const address = encodeURIComponent("Pelompataan Gg. Buntu Ajeng, Indonesia");
-    window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank');
+    // Ganti dengan link Google Maps lokasi Anda
+    window.open('https://maps.app.goo.gl/FmEdAdhumrviuEcP8', '_blank');
 }
 window.openMaps = openMaps;
 
