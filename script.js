@@ -206,27 +206,18 @@ window.openMaps = openMaps;
 // ========================
 // 8. RSVP + DAFTAR TAMU (Google Sheets) - FIXED
 // ========================
+// GANTI DENGAN URL APPS SCRIPT ANDA
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyqk2_si9TvpsxGtm98gJ0_mdshpSDwuVrsnyTi3DTD3BOyXEPLa3k7DxEdsxkMg67D8g/exec";
 
-// Fungsi escape HTML
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// FUNGSI LOAD GUEST LIST - PAKAI JSONP (TIDAK KENA CORS)
+// FUNGSI LOAD GUEST LIST - JSONP
 function loadGuestList() {
     const guestListContainer = document.getElementById('guestListContainer');
     if (!guestListContainer) return;
     
     guestListContainer.innerHTML = '<div class="loading-list"><i class="fas fa-spinner fa-pulse"></i> Memuat daftar tamu...</div>';
     
-    // Buat callback name unik
     const callbackName = 'jsonp_callback_' + Date.now();
     
-    // Buat function global untuk JSONP
     window[callbackName] = function(data) {
         try {
             if (!data || data.length === 0) {
@@ -251,20 +242,18 @@ function loadGuestList() {
                 guestListContainer.appendChild(guestItem);
             });
         } catch (error) {
-            console.error('Error parsing JSONP response:', error);
+            console.error('Error:', error);
             guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu</div>';
         } finally {
-            // Clean up
             delete window[callbackName];
             if (scriptTag) document.body.removeChild(scriptTag);
         }
     };
     
-    // Buat script tag untuk JSONP request
     const scriptTag = document.createElement('script');
     scriptTag.src = `${GOOGLE_SHEET_URL}?callback=${callbackName}&t=${Date.now()}`;
     scriptTag.onerror = function() {
-        guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Periksa koneksi internet Anda.</div>';
+        guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Periksa URL Apps Script.</div>';
         delete window[callbackName];
         if (scriptTag) document.body.removeChild(scriptTag);
     };
@@ -272,39 +261,33 @@ function loadGuestList() {
     document.body.appendChild(scriptTag);
 }
 
-// KIRIM RSVP - PAKAI FORM URL ENCODED (mode no-cors, tapi data tetap masuk)
+// KIRIM RSVP
 const rsvpForm = document.getElementById('rsvpForm');
 const rsvpStatus = document.getElementById('rsvpStatus');
 
 if (rsvpForm) {
     rsvpForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        e.stopPropagation();
         
         const nama = document.getElementById('nama').value.trim();
         const jumlah = document.getElementById('jumlah').value.trim();
         const pesan = document.getElementById('pesan').value.trim();
         
         if (!nama || !jumlah) {
-            if (rsvpStatus) {
-                rsvpStatus.innerHTML = '<span style="color:#C87A5A;">❌ Nama dan jumlah harus diisi!</span>';
-            }
+            rsvpStatus.innerHTML = '<span style="color:#C87A5A;">❌ Nama dan jumlah harus diisi!</span>';
             return;
         }
         
-        if (rsvpStatus) {
-            rsvpStatus.innerHTML = '<span>⏳ Mengirim konfirmasi...</span>';
-        }
+        rsvpStatus.innerHTML = '<span>⏳ Mengirim konfirmasi...</span>';
         
         try {
-            // Gunakan mode 'no-cors' untuk POST (data tetap masuk ke sheet)
             const formData = new URLSearchParams();
             formData.append('nama', nama);
             formData.append('jumlah', jumlah);
             formData.append('pesan', pesan);
             formData.append('tanggal', new Date().toLocaleString('id-ID'));
             
-            await fetch(GOOGLE_SHEET_URL, {
+            const response = await fetch(GOOGLE_SHEET_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: {
@@ -313,22 +296,16 @@ if (rsvpForm) {
                 body: formData.toString()
             });
             
-            // Data berhasil dikirim (meskipun response tidak terbaca)
-            if (rsvpStatus) {
-                rsvpStatus.innerHTML = '<span style="color:#6B8C5C;">✅ Terima kasih! Konfirmasi telah dikirim. 🎉</span>';
-            }
+            rsvpStatus.innerHTML = '<span style="color:#6B8C5C;">✅ Terima kasih! Konfirmasi telah dikirim. 🎉</span>';
             rsvpForm.reset();
             
-            // Refresh daftar tamu setelah submit (delay 2 detik)
             setTimeout(() => {
                 loadGuestList();
             }, 2000);
             
         } catch (error) {
             console.error('Error:', error);
-            if (rsvpStatus) {
-                rsvpStatus.innerHTML = '<span style="color:#B47C5E;">⚠️ Gagal mengirim. Coba lagi nanti.</span>';
-            }
+            rsvpStatus.innerHTML = '<span style="color:#B47C5E;">⚠️ Gagal mengirim. Coba lagi nanti.</span>';
         }
     });
 }
@@ -336,10 +313,16 @@ if (rsvpForm) {
 // Tombol refresh
 const refreshBtn = document.getElementById('refreshGuestList');
 if (refreshBtn) {
-    refreshBtn.addEventListener('click', (e) => {
-        e.preventDefault();
+    refreshBtn.addEventListener('click', () => {
         loadGuestList();
     });
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // ========================
@@ -357,9 +340,3 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// ========================
-// 10. INISIALISASI - Load guest list jika main content sudah visible
-// ========================
-if (mainContent && !mainContent.classList.contains('hidden')) {
-    setTimeout(() => loadGuestList(), 500);
-}
