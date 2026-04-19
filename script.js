@@ -198,16 +198,16 @@ if (galleryGrid) {
 // 7. MAPS
 // ========================
 function openMaps() {
-    // Alamat lengkap
-    const address = encodeURIComponent("Dekat Bandar Rejo, Kec. Bandar Masilam, Kabupaten Simalungun, Sumatera Utara");
+    // Koordinat desimal dari lokasi: 3.289472, 99.339611
+    const lat = 3.289472;
+    const lng = 99.339611;
     
-    // Format link dengan marker (penanda)
-    const mapsLink = `https://www.google.com/maps/search/?api=1&query=${address}`;
+    // Format link dengan marker (penanda) dan zoom yang pas
+    const mapsLink = `https://www.google.com/maps?q=${lat},${lng}&z=18&hl=id`;
     
     window.open(mapsLink, '_blank');
 }
 window.openMaps = openMaps;
-
 // ========================
 // 8. RSVP + DAFTAR TAMU (Google Sheets) - FIXED
 // ========================
