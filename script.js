@@ -211,10 +211,12 @@ window.openMaps = openMaps;
 // ========================
 // 8. RSVP + DAFTAR TAMU (Google Sheets) - FIXED
 // ========================
-// GANTI DENGAN URL APPS SCRIPT ANDA
+// ========================
+// RSVP + DAFTAR TAMU - PAKAI NO-CORS
+// ========================
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyqk2_si9TvpsxGtm98gJ0_mdshpSDwuVrsnyTi3DTD3BOyXEPLa3k7DxEdsxkMg67D8g/exec";
 
-// FUNGSI LOAD GUEST LIST - JSONP
+// Fungsi load guest list - PAKAI JSONP
 function loadGuestList() {
     const guestListContainer = document.getElementById('guestListContainer');
     if (!guestListContainer) return;
@@ -222,8 +224,16 @@ function loadGuestList() {
     guestListContainer.innerHTML = '<div class="loading-list"><i class="fas fa-spinner fa-pulse"></i> Memuat daftar tamu...</div>';
     
     const callbackName = 'jsonp_callback_' + Date.now();
+    const timeoutId = setTimeout(function() {
+        if (window[callbackName]) {
+            guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Coba refresh halaman.</div>';
+            delete window[callbackName];
+            if (scriptTag) document.body.removeChild(scriptTag);
+        }
+    }, 10000);
     
     window[callbackName] = function(data) {
+        clearTimeout(timeoutId);
         try {
             if (!data || data.length === 0) {
                 guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-users"></i><br>✨ Belum ada tamu yang mengisi RSVP ✨</div>';
@@ -258,7 +268,8 @@ function loadGuestList() {
     const scriptTag = document.createElement('script');
     scriptTag.src = `${GOOGLE_SHEET_URL}?callback=${callbackName}&t=${Date.now()}`;
     scriptTag.onerror = function() {
-        guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Periksa URL Apps Script.</div>';
+        clearTimeout(timeoutId);
+        guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Periksa koneksi internet Anda.</div>';
         delete window[callbackName];
         if (scriptTag) document.body.removeChild(scriptTag);
     };
@@ -266,7 +277,7 @@ function loadGuestList() {
     document.body.appendChild(scriptTag);
 }
 
-// KIRIM RSVP
+// Kirim RSVP
 const rsvpForm = document.getElementById('rsvpForm');
 const rsvpStatus = document.getElementById('rsvpStatus');
 
@@ -292,7 +303,8 @@ if (rsvpForm) {
             formData.append('pesan', pesan);
             formData.append('tanggal', new Date().toLocaleString('id-ID'));
             
-            const response = await fetch(GOOGLE_SHEET_URL, {
+            // Gunakan mode 'no-cors'
+            await fetch(GOOGLE_SHEET_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: {
@@ -328,6 +340,11 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Load daftar tamu saat halaman muncul
+if (document.getElementById('mainContent') && !document.getElementById('mainContent').classList.contains('hidden')) {
+    setTimeout(() => loadGuestList(), 1000);
 }
 
 // ========================
