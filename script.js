@@ -209,71 +209,33 @@ function openMaps() {
 }
 window.openMaps = openMaps;
 // ========================
-// DETEKSI MOBILE DEVICE
+// GANTI DENGAN URL APPS SCRIPT BARU ANDA
 // ========================
-function isMobileDevice() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/YOUR_NEW_ID/exec";
 
 // ========================
-// RSVP + DAFTAR TAMU - MOBILE FRIENDLY
+// FUNGSI LOAD GUEST LIST (SEDERHANA)
 // ========================
-const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyqk2_si9TvpsxGtm98gJ0_mdshpSDwuVrsnyTi3DTD3BOyXEPLa3k7DxEdsxkMg67D8g/exec";
-
-// Fungsi untuk memuat daftar tamu
 async function loadGuestList() {
     const guestListContainer = document.getElementById('guestListContainer');
     if (!guestListContainer) return;
     
     guestListContainer.innerHTML = '<div class="loading-list"><i class="fas fa-spinner fa-pulse"></i> Memuat daftar tamu...</div>';
     
-    const isMobile = isMobileDevice();
-    
     try {
-        let data;
+        // Pakai fetch biasa dengan mode 'cors'
+        const response = await fetch(`${GOOGLE_SHEET_URL}?t=${Date.now()}`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
         
-        if (isMobile) {
-            // MOBILE: Pakai fetch biasa dengan mode cors
-            const response = await fetch(`${GOOGLE_SHEET_URL}?mobile=true&t=${Date.now()}`, {
-                method: 'GET',
-                mode: 'cors',
-                headers: {
-                    'Accept': 'application/json',
-                }
-            });
-            
-            if (!response.ok) throw new Error('Gagal memuat data');
-            data = await response.json();
-            
-        } else {
-            // PC: Pakai JSONP (lebih cepat)
-            data = await new Promise((resolve, reject) => {
-                const callbackName = 'jsonp_callback_' + Date.now();
-                const timeoutId = setTimeout(() => {
-                    reject(new Error('Timeout'));
-                }, 10000);
-                
-                window[callbackName] = function(result) {
-                    clearTimeout(timeoutId);
-                    resolve(result);
-                    delete window[callbackName];
-                    if (scriptTag) document.body.removeChild(scriptTag);
-                };
-                
-                const scriptTag = document.createElement('script');
-                scriptTag.src = `${GOOGLE_SHEET_URL}?callback=${callbackName}&t=${Date.now()}`;
-                scriptTag.onerror = () => {
-                    clearTimeout(timeoutId);
-                    reject(new Error('Network error'));
-                    delete window[callbackName];
-                    if (scriptTag) document.body.removeChild(scriptTag);
-                };
-                
-                document.body.appendChild(scriptTag);
-            });
-        }
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         
-        // Proses data yang sama untuk PC dan Mobile
+        const data = await response.json();
+        
         if (!data || data.length === 0) {
             guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-users"></i><br>✨ Belum ada tamu yang mengisi RSVP ✨</div>';
             return;
@@ -297,12 +259,14 @@ async function loadGuestList() {
         });
         
     } catch (error) {
-        console.error('Error loading guest list:', error);
+        console.error('Error:', error);
         guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Silakan refresh halaman.</div>';
     }
 }
 
-// Kirim RSVP (sama untuk PC dan Mobile)
+// ========================
+// KIRIM RSVP
+// ========================
 const rsvpForm = document.getElementById('rsvpForm');
 const rsvpStatus = document.getElementById('rsvpStatus');
 
@@ -342,9 +306,7 @@ if (rsvpForm) {
             if (result.status === 'success') {
                 rsvpStatus.innerHTML = '<span style="color:#6B8C5C;">✅ ' + result.message + ' 🎉</span>';
                 rsvpForm.reset();
-                setTimeout(() => {
-                    loadGuestList();
-                }, 1500);
+                setTimeout(() => loadGuestList(), 1500);
             } else {
                 throw new Error(result.message || 'Gagal');
             }
