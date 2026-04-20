@@ -209,75 +209,100 @@ function openMaps() {
 }
 window.openMaps = openMaps;
 // ========================
-// 8. RSVP + DAFTAR TAMU (Google Sheets) - FIXED
+// DETEKSI MOBILE DEVICE
 // ========================
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 // ========================
-// RSVP + DAFTAR TAMU - PAKAI NO-CORS
+// RSVP + DAFTAR TAMU - MOBILE FRIENDLY
 // ========================
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyqk2_si9TvpsxGtm98gJ0_mdshpSDwuVrsnyTi3DTD3BOyXEPLa3k7DxEdsxkMg67D8g/exec";
 
-// Fungsi load guest list - PAKAI JSONP
-function loadGuestList() {
+// Fungsi untuk memuat daftar tamu
+async function loadGuestList() {
     const guestListContainer = document.getElementById('guestListContainer');
     if (!guestListContainer) return;
     
     guestListContainer.innerHTML = '<div class="loading-list"><i class="fas fa-spinner fa-pulse"></i> Memuat daftar tamu...</div>';
     
-    const callbackName = 'jsonp_callback_' + Date.now();
-    const timeoutId = setTimeout(function() {
-        if (window[callbackName]) {
-            guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Coba refresh halaman.</div>';
-            delete window[callbackName];
-            if (scriptTag) document.body.removeChild(scriptTag);
-        }
-    }, 10000);
+    const isMobile = isMobileDevice();
     
-    window[callbackName] = function(data) {
-        clearTimeout(timeoutId);
-        try {
-            if (!data || data.length === 0) {
-                guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-users"></i><br>✨ Belum ada tamu yang mengisi RSVP ✨</div>';
-                return;
-            }
-            
-            guestListContainer.innerHTML = '';
-            const reversedData = [...data].reverse();
-            
-            reversedData.forEach(item => {
-                const guestItem = document.createElement('div');
-                guestItem.className = 'guest-list-item';
-                guestItem.innerHTML = `
-                    <div class="guest-list-name">
-                        <span><i class="fas fa-user-check"></i> ${escapeHtml(item.nama)}</span>
-                        <span class="guest-list-jumlah"><i class="fas fa-calendar-check"></i> ${item.jumlah} orang</span>
-                    </div>
-                    ${item.pesan ? `<div class="guest-list-pesan"><i class="fas fa-quote-left"></i> ${escapeHtml(item.pesan)}</div>` : ''}
-                    <div class="guest-list-date"><i class="fas fa-clock"></i> ${escapeHtml(item.tanggal || '')}</div>
-                `;
-                guestListContainer.appendChild(guestItem);
+    try {
+        let data;
+        
+        if (isMobile) {
+            // MOBILE: Pakai fetch biasa dengan mode cors
+            const response = await fetch(`${GOOGLE_SHEET_URL}?mobile=true&t=${Date.now()}`, {
+                method: 'GET',
+                mode: 'cors',
+                headers: {
+                    'Accept': 'application/json',
+                }
             });
-        } catch (error) {
-            console.error('Error:', error);
-            guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu</div>';
-        } finally {
-            delete window[callbackName];
-            if (scriptTag) document.body.removeChild(scriptTag);
+            
+            if (!response.ok) throw new Error('Gagal memuat data');
+            data = await response.json();
+            
+        } else {
+            // PC: Pakai JSONP (lebih cepat)
+            data = await new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Date.now();
+                const timeoutId = setTimeout(() => {
+                    reject(new Error('Timeout'));
+                }, 10000);
+                
+                window[callbackName] = function(result) {
+                    clearTimeout(timeoutId);
+                    resolve(result);
+                    delete window[callbackName];
+                    if (scriptTag) document.body.removeChild(scriptTag);
+                };
+                
+                const scriptTag = document.createElement('script');
+                scriptTag.src = `${GOOGLE_SHEET_URL}?callback=${callbackName}&t=${Date.now()}`;
+                scriptTag.onerror = () => {
+                    clearTimeout(timeoutId);
+                    reject(new Error('Network error'));
+                    delete window[callbackName];
+                    if (scriptTag) document.body.removeChild(scriptTag);
+                };
+                
+                document.body.appendChild(scriptTag);
+            });
         }
-    };
-    
-    const scriptTag = document.createElement('script');
-    scriptTag.src = `${GOOGLE_SHEET_URL}?callback=${callbackName}&t=${Date.now()}`;
-    scriptTag.onerror = function() {
-        clearTimeout(timeoutId);
-        guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Periksa koneksi internet Anda.</div>';
-        delete window[callbackName];
-        if (scriptTag) document.body.removeChild(scriptTag);
-    };
-    
-    document.body.appendChild(scriptTag);
+        
+        // Proses data yang sama untuk PC dan Mobile
+        if (!data || data.length === 0) {
+            guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-users"></i><br>✨ Belum ada tamu yang mengisi RSVP ✨</div>';
+            return;
+        }
+        
+        guestListContainer.innerHTML = '';
+        const reversedData = [...data].reverse();
+        
+        reversedData.forEach(item => {
+            const guestItem = document.createElement('div');
+            guestItem.className = 'guest-list-item';
+            guestItem.innerHTML = `
+                <div class="guest-list-name">
+                    <span><i class="fas fa-user-check"></i> ${escapeHtml(item.nama)}</span>
+                    <span class="guest-list-jumlah"><i class="fas fa-calendar-check"></i> ${item.jumlah} orang</span>
+                </div>
+                ${item.pesan ? `<div class="guest-list-pesan"><i class="fas fa-quote-left"></i> ${escapeHtml(item.pesan)}</div>` : ''}
+                <div class="guest-list-date"><i class="fas fa-clock"></i> ${escapeHtml(item.tanggal || '')}</div>
+            `;
+            guestListContainer.appendChild(guestItem);
+        });
+        
+    } catch (error) {
+        console.error('Error loading guest list:', error);
+        guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Silakan refresh halaman.</div>';
+    }
 }
 
-// Kirim RSVP
+// Kirim RSVP (sama untuk PC dan Mobile)
 const rsvpForm = document.getElementById('rsvpForm');
 const rsvpStatus = document.getElementById('rsvpStatus');
 
@@ -303,22 +328,26 @@ if (rsvpForm) {
             formData.append('pesan', pesan);
             formData.append('tanggal', new Date().toLocaleString('id-ID'));
             
-            // Gunakan mode 'no-cors'
-            await fetch(GOOGLE_SHEET_URL, {
+            const response = await fetch(GOOGLE_SHEET_URL, {
                 method: 'POST',
-                mode: 'no-cors',
+                mode: 'cors',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: formData.toString()
             });
             
-            rsvpStatus.innerHTML = '<span style="color:#6B8C5C;">✅ Terima kasih! Konfirmasi telah dikirim. 🎉</span>';
-            rsvpForm.reset();
+            const result = await response.json();
             
-            setTimeout(() => {
-                loadGuestList();
-            }, 2000);
+            if (result.status === 'success') {
+                rsvpStatus.innerHTML = '<span style="color:#6B8C5C;">✅ ' + result.message + ' 🎉</span>';
+                rsvpForm.reset();
+                setTimeout(() => {
+                    loadGuestList();
+                }, 1500);
+            } else {
+                throw new Error(result.message || 'Gagal');
+            }
             
         } catch (error) {
             console.error('Error:', error);
