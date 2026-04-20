@@ -209,63 +209,84 @@ function openMaps() {
 }
 window.openMaps = openMaps;
 // ========================
-// GANTI DENGAN URL APPS SCRIPT BARU ANDA
+// GOOGLE SHEETS URL - GANTI DENGAN MILIK ANDA
 // ========================
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbywqNEwT-g3kWPlURY_Wm3SptM5_9nVTiMy9EDCIq5keuGUaMN8pI4PAei73wQKGMDL/exec";
 
 // ========================
-// FUNGSI LOAD GUEST LIST (SEDERHANA)
+// FUNGSI LOAD GUEST LIST - PAKAI JSONP (BISA BACA RESPONSE)
 // ========================
-async function loadGuestList() {
+function loadGuestList() {
     const guestListContainer = document.getElementById('guestListContainer');
     if (!guestListContainer) return;
     
     guestListContainer.innerHTML = '<div class="loading-list"><i class="fas fa-spinner fa-pulse"></i> Memuat daftar tamu...</div>';
     
-    try {
-        // Pakai fetch biasa dengan mode 'cors'
-        const response = await fetch(`${GOOGLE_SHEET_URL}?t=${Date.now()}`, {
-            method: 'GET',
-            mode: 'cors',
-            headers: {
-                'Accept': 'application/json',
-            }
-        });
-        
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        
-        const data = await response.json();
-        
-        if (!data || data.length === 0) {
-            guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-users"></i><br>✨ Belum ada tamu yang mengisi RSVP ✨</div>';
-            return;
+    // Buat callback name unik
+    const callbackName = 'jsonp_callback_' + Date.now();
+    
+    // Timeout untuk jaga-jaga (10 detik)
+    const timeoutId = setTimeout(function() {
+        if (window[callbackName]) {
+            console.warn('JSONP timeout');
+            guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>⏰ Waktu habis. Silakan refresh halaman.</div>';
+            delete window[callbackName];
+            if (scriptTag) document.body.removeChild(scriptTag);
         }
+    }, 10000);
+    
+    // Buat function global untuk JSONP
+    window[callbackName] = function(data) {
+        clearTimeout(timeoutId);
+        console.log('JSONP response received:', data); // Debug
         
-        guestListContainer.innerHTML = '';
-        const reversedData = [...data].reverse();
-        
-        reversedData.forEach(item => {
-            const guestItem = document.createElement('div');
-            guestItem.className = 'guest-list-item';
-            guestItem.innerHTML = `
-                <div class="guest-list-name">
-                    <span><i class="fas fa-user-check"></i> ${escapeHtml(item.nama)}</span>
-                    <span class="guest-list-jumlah"><i class="fas fa-calendar-check"></i> ${item.jumlah} orang</span>
-                </div>
-                ${item.pesan ? `<div class="guest-list-pesan"><i class="fas fa-quote-left"></i> ${escapeHtml(item.pesan)}</div>` : ''}
-                <div class="guest-list-date"><i class="fas fa-clock"></i> ${escapeHtml(item.tanggal || '')}</div>
-            `;
-            guestListContainer.appendChild(guestItem);
-        });
-        
-    } catch (error) {
-        console.error('Error:', error);
-        guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Silakan refresh halaman.</div>';
-    }
+        try {
+            if (!data || data.length === 0) {
+                guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-users"></i><br>✨ Belum ada tamu yang mengisi RSVP ✨</div>';
+                return;
+            }
+            
+            guestListContainer.innerHTML = '';
+            const reversedData = [...data].reverse();
+            
+            reversedData.forEach(item => {
+                const guestItem = document.createElement('div');
+                guestItem.className = 'guest-list-item';
+                guestItem.innerHTML = `
+                    <div class="guest-list-name">
+                        <span><i class="fas fa-user-check"></i> ${escapeHtml(item.nama)}</span>
+                        <span class="guest-list-jumlah"><i class="fas fa-calendar-check"></i> ${item.jumlah} orang</span>
+                    </div>
+                    ${item.pesan ? `<div class="guest-list-pesan"><i class="fas fa-quote-left"></i> ${escapeHtml(item.pesan)}</div>` : ''}
+                    <div class="guest-list-date"><i class="fas fa-clock"></i> ${escapeHtml(item.tanggal || '')}</div>
+                `;
+                guestListContainer.appendChild(guestItem);
+            });
+        } catch (error) {
+            console.error('Error parsing JSONP response:', error);
+            guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>Gagal memuat daftar tamu. Error: ' + error.message + '</div>';
+        } finally {
+            delete window[callbackName];
+            if (scriptTag) document.body.removeChild(scriptTag);
+        }
+    };
+    
+    // Buat script tag untuk JSONP request
+    const scriptTag = document.createElement('script');
+    scriptTag.src = `${GOOGLE_SHEET_URL}?callback=${callbackName}&t=${Date.now()}`;
+    scriptTag.onerror = function() {
+        clearTimeout(timeoutId);
+        console.error('JSONP script load error');
+        guestListContainer.innerHTML = '<div class="empty-list"><i class="fas fa-exclamation-triangle"></i><br>❌ Gagal memuat daftar tamu. Periksa koneksi internet Anda.</div>';
+        delete window[callbackName];
+        if (scriptTag) document.body.removeChild(scriptTag);
+    };
+    
+    document.body.appendChild(scriptTag);
 }
 
 // ========================
-// KIRIM RSVP
+// KIRIM RSVP - DENGAN RESPONSE HANDLER
 // ========================
 const rsvpForm = document.getElementById('rsvpForm');
 const rsvpStatus = document.getElementById('rsvpStatus');
@@ -294,7 +315,6 @@ if (rsvpForm) {
             
             const response = await fetch(GOOGLE_SHEET_URL, {
                 method: 'POST',
-                mode: 'cors',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
@@ -306,19 +326,47 @@ if (rsvpForm) {
             if (result.status === 'success') {
                 rsvpStatus.innerHTML = '<span style="color:#6B8C5C;">✅ ' + result.message + ' 🎉</span>';
                 rsvpForm.reset();
-                setTimeout(() => loadGuestList(), 1500);
+                // Refresh daftar tamu setelah 1 detik
+                setTimeout(() => {
+                    loadGuestList();
+                }, 1000);
             } else {
                 throw new Error(result.message || 'Gagal');
             }
             
         } catch (error) {
             console.error('Error:', error);
-            rsvpStatus.innerHTML = '<span style="color:#B47C5E;">⚠️ Gagal mengirim. Coba lagi nanti.</span>';
+            // Coba kirim dengan mode no-cors sebagai fallback
+            try {
+                const formData = new URLSearchParams();
+                formData.append('nama', nama);
+                formData.append('jumlah', jumlah);
+                formData.append('pesan', pesan);
+                formData.append('tanggal', new Date().toLocaleString('id-ID'));
+                
+                await fetch(GOOGLE_SHEET_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData.toString()
+                });
+                
+                rsvpStatus.innerHTML = '<span style="color:#6B8C5C;">✅ Konfirmasi terkirim! Terima kasih 🎉</span>';
+                rsvpForm.reset();
+                setTimeout(() => loadGuestList(), 1500);
+                
+            } catch (fallbackError) {
+                rsvpStatus.innerHTML = '<span style="color:#B47C5E;">⚠️ Gagal mengirim. Coba lagi nanti.</span>';
+            }
         }
     });
 }
 
-// Tombol refresh
+// ========================
+// TOMBOL REFRESH
+// ========================
 const refreshBtn = document.getElementById('refreshGuestList');
 if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
@@ -326,6 +374,9 @@ if (refreshBtn) {
     });
 }
 
+// ========================
+// ESCAPE HTML
+// ========================
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -333,7 +384,9 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Load daftar tamu saat halaman muncul
+// ========================
+// LOAD SAAT HALAMAN MUNCUL
+// ========================
 if (document.getElementById('mainContent') && !document.getElementById('mainContent').classList.contains('hidden')) {
     setTimeout(() => loadGuestList(), 1000);
 }
