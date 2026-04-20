@@ -211,7 +211,7 @@ window.openMaps = openMaps;
 // ========================
 // GANTI DENGAN URL APPS SCRIPT BARU ANDA
 // ========================
-const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/YOUR_NEW_ID/exec";
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbywqNEwT-g3kWPlURY_Wm3SptM5_9nVTiMy9EDCIq5keuGUaMN8pI4PAei73wQKGMDL/exec";
 
 // ========================
 // FUNGSI LOAD GUEST LIST (SEDERHANA)
