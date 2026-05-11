@@ -173,7 +173,7 @@ const galleryImages = [
     { src: "image/poto1.png", crop: "gallery-img-1" },
     { src: "image/poto2.jpeg", crop: "gallery-img-2" },
     { src: "image/photo4.jpeg", crop: "gallery-img-3" },
-    { src: "image/photo3.png", crop: "gallery-img-4" }
+    { src: "image/photo3.jpeg", crop: "gallery-img-4" }
 ];
 
 const galleryGrid = document.getElementById('galleryGrid');
